@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IoT Monitoring System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f2f5;
+      margin: 0;
+    }
+    .header, .card {
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      margin: 16px;
+      padding: 16px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .content {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+    .card {
+      flex: 1 1 calc(25% - 32px);
+      margin: 8px;
+      padding: 20px;
+      text-align: center;
+    }
+    .chart-container {
+      width: 100%;
+      max-width: 700px;
+      margin: 16px auto;
+    }
+    .chart {
+      width: 100%;
+      height: 300px;
+    }
+    .icon {
+      font-size: 1.5rem;
+      color: #4a90e2;
+    }
+    .welcome-box {
+      background-color: #00e1ff;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="header welcome-box">
+    <h1>Smart Quail Cage Monitoring System</h1>
+    <div>
+      <span id="lastUpdate">Last Update: -</span>
+      <span id="connectionStatus">Disconnected <i class="fas fa-wifi-slash" style="color: red;"></i></span>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="card" id="temperatureCard">
+      <h3>Temperature</h3>
+      <div><i class="fas fa-thermometer-half icon"></i></div>
+      <div id="temperature" style="font-size: 2rem;">0°C</div>
+    </div>
+    <div class="card" id="humidityCard">
+      <h3>Humidity</h3>
+      <div><i class="fas fa-tint icon"></i></div>
+      <div id="humidity" style="font-size: 2rem;">0%</div>
+    </div>
+    <div class="card" id="motionCard">
+      <h3>Motion Status</h3>
+      <div id="motionIcon" class="icon"><i class="fas fa-check-circle" style="color: green;"></i></div>
+      <div id="motion" style="font-size: 1.5rem;">No Motion</div>
+    </div>
+    <div class="card" id="lightLevelCard">
+      <h3>Light Level</h3>
+      <div><i class="fas fa-sun icon"></i></div>
+      <div id="ldr" style="font-size: 2rem;">0</div>
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <h3>Temperature Over Time</h3>
+    <canvas id="temperatureChart" class="chart"></canvas>
+  </div>
+  <div class="chart-container">
+    <h3>Humidity Over Time</h3>
+    <canvas id="humidityChart" class="chart"></canvas>
+  </div>
+  <div class="chart-container">
+    <h3>Light Level Over Time</h3>
+    <canvas id="lightLevelChart" class="chart"></canvas>
+  </div>
+
+  <script>
+    // Replace 'yourdomain.infinityfreeapp.com' with your actual InfinityFree domain
+    const apiUrl = 'http://smartquailcagedashboard.fwh.is/infinityfreeapp.com/receive_data.php';
+
+    // Function to fetch data periodically
+    function fetchData() {
+      fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+          // Update DOM elements with new data
+          document.getElementById('temperature').textContent = data.temperature + "°C";
+          document.getElementById('humidity').textContent = data.humidity + "%";
+          document.getElementById('motion').textContent = data.motion ? "Motion Detected" : "No Motion";
+          document.getElementById('ldr').textContent = data.ldr;
+          document.getElementById('lastUpdate').textContent = "Last Update: " + new Date().toLocaleTimeString();
+
+          // Change motion icon based on motion status
+          document.getElementById('motionIcon').innerHTML = data.motion
+            ? '<i class="fas fa-exclamation-circle" style="color: orange;"></i>'
+            : '<i class="fas fa-check-circle" style="color: green;"></i>';
+
+          // Update charts with new data
+          addData(temperatureChart, new Date().toLocaleTimeString(), data.temperature);
+          addData(humidityChart, new Date().toLocaleTimeString(), data.humidity);
+          addData(lightLevelChart, new Date().toLocaleTimeString(), data.ldr);
+
+          // Set connection status as connected
+          document.getElementById('connectionStatus').innerHTML = 'Connected <i class="fas fa-wifi" style="color: green;"></i>';
+        })
+        .catch(error => {
+          console.error("Error fetching data:", error);
+          document.getElementById('connectionStatus').innerHTML = 'Disconnected <i class="fas fa-wifi-slash" style="color: red;"></i>';
+        });
+    }
+
+    // Set interval to fetch data every 2 seconds
+    setInterval(fetchData, 2000);
+
+    // Initialize Charts
+    const ctx1 = document.getElementById('temperatureChart').getContext('2d');
+    const ctx2 = document.getElementById('humidityChart').getContext('2d');
+    const ctx3 = document.getElementById('lightLevelChart').getContext('2d');
+
+    const temperatureChart = createChart(ctx1, 'Temperature (°C)', 'rgba(75, 192, 192, 1)');
+    const humidityChart = createChart(ctx2, 'Humidity (%)', 'rgba(54, 162, 235, 1)');
+    const lightLevelChart = createChart(ctx3, 'Light Level', 'rgba(255, 206, 86, 1)');
+
+    function createChart(ctx, label, color) {
+      return new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: label,
+            backgroundColor: color,
+            borderColor: color,
+            data: [],
+            fill: false,
+          }]
+        },
+        options: {
+          scales: {
+            x: { title: { display: true, text: 'Time' } },
+            y: { title: { display: true, text: label } }
+          }
+        }
+      });
+    }
+
+    function addData(chart, label, data) {
+      chart.data.labels.push(label);
+      chart.data.datasets[0].data.push(data);
+      if (chart.data.labels.length > 10) {
+        chart.data.labels.shift();
+        chart.data.datasets[0].data.shift();
+      }
+      chart.update();
+    }
+  </script>
+</body>
+</html> 
